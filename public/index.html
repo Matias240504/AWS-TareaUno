@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Demo - Node.js Backend</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="container">
+                <h1>🚀 AWS Demo - Node.js</h1>
+                <ul>
+                    <li><a href="#home">Inicio</a></li>
+                    <li><a href="#about">Acerca de</a></li>
+                    <li><a href="#gallery">Galería S3</a></li>
+                    <li><a href="#counter">Contador Lambda</a></li>
+                    <li><a href="#api">API Demo</a></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <section id="home" class="hero">
+            <div class="container">
+                <h2>¡Hola Mundo desde AWS con Node.js!</h2>
+                <p>Este es un sitio web con backend Node.js desplegado en una instancia EC2 de Amazon Web Services.</p>
+                <div class="server-info">
+                    <div class="info-card">
+                        <h4>🖥️ Servidor</h4>
+                        <p>Node.js + Express</p>
+                        <p id="server-status">Conectando...</p>
+                    </div>
+                    <div class="info-card">
+                        <h4>📊 APIs</h4>
+                        <p>RESTful endpoints</p>
+                        <p id="api-status">Verificando...</p>
+                    </div>
+                </div>
+                <div class="aws-services">
+                    <div class="service-card">
+                        <h3>🖥️ EC2</h3>
+                        <p>Instancia Ubuntu Server</p>
+                        <small id="ec2-info">Cargando...</small>
+                    </div>
+                    <div class="service-card">
+                        <h3>🗄️ S3</h3>
+                        <p>Almacenamiento de archivos estáticos</p>
+                        <small id="s3-info">Cargando...</small>
+                    </div>
+                    <div class="service-card">
+                        <h3>🔐 IAM</h3>
+                        <p>Gestión de roles y permisos</p>
+                        <small id="iam-info">Cargando...</small>
+                    </div>
+                    <div class="service-card">
+                        <h3>⚡ Lambda</h3>
+                        <p>Función serverless (contador)</p>
+                        <small id="lambda-info">Cargando...</small>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="about" class="about">
+            <div class="container">
+                <h2>Acerca de esta Demo</h2>
+                <p>Esta aplicación Node.js demuestra la integración de servicios AWS:</p>
+                <ul>
+                    <li><strong>EC2:</strong> Servidor Ubuntu con Node.js que aloja esta aplicación</li>
+                    <li><strong>S3:</strong> Bucket para almacenar imágenes y recursos estáticos</li>
+                    <li><strong>IAM:</strong> Roles configurados para acceso seguro entre servicios</li>
+                    <li><strong>Lambda:</strong> Función para contar visitas (simulada por API)</li>
+                </ul>
+                <div class="tech-stack">
+                    <h3>🛠️ Stack Tecnológico</h3>
+                    <div class="tech-grid">
+                        <span class="tech-item">Node.js</span>
+                        <span class="tech-item">Express.js</span>
+                        <span class="tech-item">AWS SDK</span>
+                        <span class="tech-item">HTML5/CSS3</span>
+                        <span class="tech-item">JavaScript ES6+</span>
+                        <span class="tech-item">RESTful APIs</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="gallery" class="gallery">
+            <div class="container">
+                <h2>Galería de Imágenes (S3)</h2>
+                <p>Las siguientes imágenes se cargan desde un bucket de Amazon S3:</p>
+                <div class="gallery-controls">
+                    <button onclick="loadS3Files()">🔄 Actualizar desde S3</button>
+                    <button onclick="simulateUpload()">📤 Simular Subida</button>
+                </div>
+                <div class="image-grid" id="image-grid">
+                    <!-- Las imágenes se cargarán dinámicamente desde la API -->
+                    <div class="image-placeholder">
+                        <p>📷 Cargando imágenes desde S3...</p>
+                    </div>
+                </div>
+                <div class="s3-info">
+                    <h4>📊 Información del Bucket S3</h4>
+                    <div id="s3-details">Cargando información...</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="counter" class="counter">
+            <div class="container">
+                <h2>Contador de Visitas (Lambda Simulado)</h2>
+                <p>Este contador usa una API que simula una función Lambda:</p>
+                <div class="visit-counter">
+                    <span id="visit-count">Cargando...</span>
+                    <p>visitas</p>
+                </div>
+                <div class="counter-controls">
+                    <button onclick="incrementCounter()">➕ Incrementar</button>
+                    <button onclick="getCounter()">🔄 Actualizar</button>
+                    <button onclick="resetCounter()">🔄 Resetear</button>
+                </div>
+                <div class="counter-info">
+                    <small id="counter-last-update">Última actualización: --</small>
+                </div>
+            </div>
+        </section>
+
+        <section id="api" class="api-demo">
+            <div class="container">
+                <h2>Demo de APIs</h2>
+                <p>Prueba los endpoints de la aplicación Node.js:</p>
+                <div class="api-grid">
+                    <div class="api-card">
+                        <h4>📊 /api/health</h4>
+                        <p>Estado del servidor</p>
+                        <button onclick="testAPI('/api/health')">Probar</button>
+                    </div>
+                    <div class="api-card">
+                        <h4>☁️ /api/aws-info</h4>
+                        <p>Información de AWS</p>
+                        <button onclick="testAPI('/api/aws-info')">Probar</button>
+                    </div>
+                    <div class="api-card">
+                        <h4>🔢 /api/counter</h4>
+                        <p>Contador de visitas</p>
+                        <button onclick="testAPI('/api/counter')">Probar</button>
+                    </div>
+                    <div class="api-card">
+                        <h4>📁 /api/s3/files</h4>
+                        <p>Archivos en S3</p>
+                        <button onclick="testAPI('/api/s3/files')">Probar</button>
+                    </div>
+                </div>
+                <div class="api-response">
+                    <h4>📋 Respuesta de la API:</h4>
+                    <pre id="api-response-content">Selecciona una API para probar...</pre>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="aws-info-footer" id="aws-info-footer">
+                <p>Cargando información de AWS...</p>
+            </div>
+            <p>&copy; 2025 AWS Demo - Node.js Backend</p>
+            <p>Desplegado en Amazon EC2 | Archivos en S3 | APIs con Express.js</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
