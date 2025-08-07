@@ -4,7 +4,35 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs');
+const AWS = require('aws-sdk');
 require('dotenv').config();
+
+// Configurar AWS SDK
+AWS.config.update({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION || 'us-east-1'
+});
+
+// Inicializar servicios AWS
+const ec2 = new AWS.EC2();
+const s3 = new AWS.S3();
+const lambda = new AWS.Lambda();
+
+// Variables de configuración AWS
+const s3Region = process.env.S3_REGION || process.env.AWS_REGION || 'us-east-1';
+const ec2InstanceId = process.env.EC2_INSTANCE_ID;
+const lambdaFunctionName = process.env.LAMBDA_FUNCTION_NAME || 'visit-counter';
+
+// Función auxiliar para formatear bytes
+function formatBytes(bytes, decimals = 2) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
 
 // Crear aplicación Express
 const app = express();
@@ -47,7 +75,8 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrcAttr: ["'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https:", "*.amazonaws.com"],
     },
   },
@@ -55,15 +84,16 @@ app.use(helmet({
 
 app.use(cors());
 app.use(morgan('combined'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Aumentar límite para subida de archivos (50MB)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Servir archivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Variables globales para simular datos
 let visitCounter = parseInt(process.env.VISIT_COUNTER || '100');
-const s3BucketName = process.env.S3_BUCKET_NAME || 'aws-demo-bucket-placeholder';
+const s3BucketName = process.env.S3_BUCKET_NAME || 'aws-demo-1754583296-usuario';
 const awsRegion = process.env.AWS_REGION || 'us-east-1';
 
 // Ruta principal - servir index.html
@@ -71,39 +101,88 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// API para obtener información de AWS
-app.get('/api/aws-info', (req, res) => {
-  const awsInfo = {
-    ec2: {
-      instanceId: process.env.EC2_INSTANCE_ID || 'i-1234567890abcdef0',
+// API para obtener información real de AWS
+app.get('/api/aws-info', async (req, res) => {
+  try {
+    console.log('🔍 Getting real AWS info...');
+    
+    // Obtener información de EC2
+    let ec2Info = {
+      instanceId: process.env.EC2_INSTANCE_ID || 'No configurado',
       instanceType: 't2.micro',
       region: awsRegion,
-      status: 'running',
-      publicIp: process.env.EC2_PUBLIC_IP || 'Obteniendo...'
-    },
-    s3: {
+      status: 'unknown',
+      publicIp: 'No disponible'
+    };
+    
+    if (process.env.EC2_INSTANCE_ID) {
+      try {
+        const ec2Data = await ec2.describeInstances({
+          InstanceIds: [process.env.EC2_INSTANCE_ID]
+        }).promise();
+        
+        const instance = ec2Data.Reservations[0]?.Instances[0];
+        if (instance) {
+          ec2Info.status = instance.State.Name;
+          ec2Info.publicIp = instance.PublicIpAddress || 'No asignada';
+          ec2Info.instanceType = instance.InstanceType;
+        }
+      } catch (ec2Error) {
+        console.warn('⚠️ Error getting EC2 info:', ec2Error.message);
+      }
+    }
+    
+    // Obtener información de S3
+    let s3Info = {
       bucketName: s3BucketName,
       region: awsRegion,
-      objects: 3,
-      size: '2.5 MB',
-      url: `https://${s3BucketName}.s3.amazonaws.com`
-    },
-    lambda: {
-      functionName: 'aws-demo-counter',
-      runtime: 'python3.9',
-      status: 'active'
-    },
-    iam: {
-      roles: ['EC2-S3-Access', 'Lambda-Execution-Role'],
-      policies: ['S3ReadOnlyAccess', 'CloudWatchLogsFullAccess']
+      objects: 0,
+      size: '0 B',
+      url: `https://${s3BucketName}.s3.amazonaws.com`,
+      exists: false
+    };
+    
+    try {
+      await s3.headBucket({ Bucket: s3BucketName }).promise();
+      s3Info.exists = true;
+      
+      const objects = await s3.listObjectsV2({ Bucket: s3BucketName }).promise();
+      s3Info.objects = objects.KeyCount || 0;
+      
+      const totalSize = objects.Contents?.reduce((sum, obj) => sum + obj.Size, 0) || 0;
+      s3Info.size = formatBytes(totalSize);
+    } catch (s3Error) {
+      console.warn('⚠️ S3 bucket not accessible:', s3Error.message);
     }
-  };
+    
+    const awsInfo = {
+      ec2: ec2Info,
+      s3: s3Info,
+      lambda: {
+        functionName: process.env.LAMBDA_FUNCTION_NAME || 'aws-demo-counter',
+        runtime: 'python3.9',
+        status: 'checking...'
+      },
+      iam: {
+        roles: ['EC2-S3-Access', 'Lambda-Execution-Role'],
+        policies: ['S3ReadOnlyAccess', 'CloudWatchLogsFullAccess']
+      }
+    };
 
-  res.json({
-    success: true,
-    data: awsInfo,
-    timestamp: new Date().toISOString()
-  });
+    res.json({
+      success: true,
+      data: awsInfo,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error getting AWS info:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting AWS information',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // API para contador de visitas (simula Lambda)
@@ -144,58 +223,138 @@ app.post('/api/counter/reset', (req, res) => {
   });
 });
 
-// API para listar archivos S3 (simulado)
-app.get('/api/s3/files', (req, res) => {
-  console.log('📁 Getting S3 files list');
-  
-  const s3Files = [
-    {
-      key: 'assets/aws-logo.png',
-      size: 1024,
-      lastModified: new Date().toISOString(),
-      url: `https://${s3BucketName}.s3.amazonaws.com/assets/aws-logo.png`
-    },
-    {
-      key: 'assets/ec2-diagram.jpg',
-      size: 2048,
-      lastModified: new Date().toISOString(),
-      url: `https://${s3BucketName}.s3.amazonaws.com/assets/ec2-diagram.jpg`
-    },
-    {
-      key: 'assets/s3-storage.png',
-      size: 1536,
-      lastModified: new Date().toISOString(),
-      url: `https://${s3BucketName}.s3.amazonaws.com/assets/s3-storage.png`
+// API para listar archivos S3 (real)
+app.get('/api/s3/files', async (req, res) => {
+  try {
+    console.log('📁 Getting real S3 files list from bucket:', s3BucketName);
+    
+    // Verificar si el bucket existe
+    try {
+      await s3.headBucket({ Bucket: s3BucketName }).promise();
+    } catch (bucketError) {
+      console.log('❌ Error checking S3 bucket:', bucketError);
+      return res.status(404).json({
+        success: false,
+        message: `S3 bucket '${s3BucketName}' not found or not accessible`,
+        error: bucketError,
+        timestamp: new Date().toISOString()
+      });
     }
-  ];
+    
+    // Listar objetos del bucket
+    const listParams = {
+      Bucket: s3BucketName,
+      MaxKeys: 100
+    };
+    
+    const data = await s3.listObjectsV2(listParams).promise();
+    
+    const s3Files = data.Contents?.map(obj => ({
+      key: obj.Key,
+      size: obj.Size,
+      lastModified: obj.LastModified.toISOString(),
+      url: `https://${s3BucketName}.s3.amazonaws.com/${obj.Key}`,
+      etag: obj.ETag,
+      storageClass: obj.StorageClass || 'STANDARD'
+    })) || [];
 
-  res.json({
-    success: true,
-    bucket: s3BucketName,
-    files: s3Files,
-    count: s3Files.length,
-    timestamp: new Date().toISOString()
-  });
+    res.json({
+      success: true,
+      bucket: s3BucketName,
+      files: s3Files,
+      count: s3Files.length,
+      totalSize: formatBytes(s3Files.reduce((sum, file) => sum + file.size, 0)),
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error listing S3 files:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error listing S3 files',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
-// API para subir archivo a S3 (simulado)
-app.post('/api/s3/upload', (req, res) => {
-  console.log('📤 Simulating S3 upload');
-  
-  // En producción, aquí usarías AWS SDK para subir realmente a S3
-  const fileName = req.body.fileName || 'uploaded-file.txt';
-  const fileSize = req.body.fileSize || 1024;
-  
-  res.json({
-    success: true,
-    message: 'File uploaded successfully (simulated)',
-    file: {
-      key: `uploads/${fileName}`,
-      size: fileSize,
-      url: `https://${s3BucketName}.s3.amazonaws.com/uploads/${fileName}`,
-      uploadedAt: new Date().toISOString()
+// API para subir archivo a S3 (real)
+app.post('/api/s3/upload', async (req, res) => {
+  try {
+    console.log('📤 Uploading file to S3...');
+    
+    const fileName = req.body.fileName || `upload-${Date.now()}.txt`;
+    const fileContent = req.body.fileContent;
+    const contentType = req.body.contentType || 'application/octet-stream';
+    
+    if (!fileContent) {
+      return res.status(400).json({
+        success: false,
+        message: 'File content is required',
+        timestamp: new Date().toISOString()
+      });
     }
-  });
+    
+    // Convertir base64 a buffer si es necesario
+    let fileBuffer;
+    try {
+      // Si el contenido viene en base64, convertirlo a buffer
+      if (typeof fileContent === 'string' && fileContent.length > 0) {
+        fileBuffer = Buffer.from(fileContent, 'base64');
+      } else {
+        fileBuffer = fileContent;
+      }
+    } catch (bufferError) {
+      console.error('❌ Error converting file content:', bufferError);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid file content format',
+        error: bufferError.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Parámetros para la subida
+    const uploadParams = {
+      Bucket: s3BucketName,
+      Key: `uploads/${fileName}`,
+      Body: fileBuffer,
+      ContentType: contentType,
+      // ACL removido - el bucket usa políticas para acceso público
+      Metadata: {
+        'uploaded-by': 'aws-demo-app',
+        'upload-timestamp': new Date().toISOString()
+      }
+    };
+    
+    console.log(`📤 Uploading ${fileName} (${formatBytes(fileBuffer.length)}) to S3...`);
+    
+    // Subir archivo a S3
+    const uploadResult = await s3.upload(uploadParams).promise();
+    
+    console.log('✅ File uploaded successfully:', uploadResult.Location);
+    
+    res.json({
+      success: true,
+      message: 'File uploaded successfully to S3',
+      file: {
+        key: uploadResult.Key,
+        url: uploadResult.Location,
+        bucket: uploadResult.Bucket,
+        etag: uploadResult.ETag,
+        size: fileBuffer.length,
+        contentType: contentType,
+        uploadedAt: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error uploading to S3:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error uploading file to S3',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // API de salud del servidor

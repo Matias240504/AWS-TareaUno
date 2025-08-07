@@ -472,6 +472,193 @@ window.addEventListener('beforeunload', () => {
     stopAutoUpdates();
 });
 
+// Variables globales para upload
+let selectedFiles = [];
+
+// Manejar selección de archivos
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) {
+        fileInput.addEventListener('change', handleFileSelection);
+    }
+    
+    // Event listeners para botones de upload
+    const uploadBtn = document.getElementById('upload-btn');
+    if (uploadBtn) {
+        uploadBtn.addEventListener('click', uploadSelectedFiles);
+    }
+    
+    const clearBtn = document.getElementById('clear-files-btn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', clearSelectedFiles);
+    }
+});
+
+// Manejar selección de archivos
+function handleFileSelection(event) {
+    const files = Array.from(event.target.files);
+    selectedFiles = [...selectedFiles, ...files];
+    updateSelectedFilesDisplay();
+    updateUploadButton();
+}
+
+// Actualizar display de archivos seleccionados
+function updateSelectedFilesDisplay() {
+    const container = document.getElementById('selected-files');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    selectedFiles.forEach((file, index) => {
+        const fileItem = document.createElement('div');
+        fileItem.className = 'file-item';
+        
+        fileItem.innerHTML = `
+            <div class="file-info">
+                <div class="file-name">${file.name}</div>
+                <div class="file-size">${formatBytes(file.size)}</div>
+            </div>
+            <button class="remove-file" data-file-index="${index}">
+                ×
+            </button>
+        `;
+        
+        // Agregar event listener al botón de remover
+        const removeBtn = fileItem.querySelector('.remove-file');
+        removeBtn.addEventListener('click', () => removeSelectedFile(index));
+        
+        container.appendChild(fileItem);
+    });
+}
+
+// Remover archivo seleccionado
+function removeSelectedFile(index) {
+    selectedFiles.splice(index, 1);
+    updateSelectedFilesDisplay();
+    updateUploadButton();
+}
+
+// Limpiar archivos seleccionados
+function clearSelectedFiles() {
+    selectedFiles = [];
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) fileInput.value = '';
+    updateSelectedFilesDisplay();
+    updateUploadButton();
+}
+
+// Actualizar estado del botón de upload
+function updateUploadButton() {
+    const uploadBtn = document.getElementById('upload-btn');
+    if (uploadBtn) {
+        uploadBtn.disabled = selectedFiles.length === 0;
+    }
+}
+
+// Subir archivos seleccionados
+async function uploadSelectedFiles() {
+    if (selectedFiles.length === 0) {
+        alert('Por favor selecciona archivos para subir');
+        return;
+    }
+    
+    const progressContainer = document.getElementById('upload-progress');
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+    const resultsContainer = document.getElementById('upload-results');
+    
+    // Mostrar barra de progreso
+    if (progressContainer) progressContainer.style.display = 'block';
+    if (resultsContainer) resultsContainer.innerHTML = '';
+    
+    let uploadedCount = 0;
+    const totalFiles = selectedFiles.length;
+    
+    for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        
+        try {
+            // Actualizar progreso
+            const progress = ((i + 1) / totalFiles) * 100;
+            if (progressFill) progressFill.style.width = `${progress}%`;
+            if (progressText) progressText.textContent = `Subiendo ${file.name}... (${i + 1}/${totalFiles})`;
+            
+            // Convertir archivo a base64
+            const fileContent = await fileToBase64(file);
+            
+            // Subir archivo
+            const response = await fetch(`${APP_CONFIG.API_BASE_URL}${APP_CONFIG.ENDPOINTS.S3_UPLOAD}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    fileName: file.name,
+                    fileContent: fileContent,
+                    contentType: file.type || 'application/octet-stream'
+                })
+            });
+            
+            const result = await response.json();
+            
+            // Mostrar resultado
+            addUploadResult(file.name, result.success, result.success ? result.file.url : result.error);
+            
+            if (result.success) {
+                uploadedCount++;
+            }
+            
+        } catch (error) {
+            console.error('Error uploading file:', file.name, error);
+            addUploadResult(file.name, false, error.message);
+        }
+    }
+    
+    // Finalizar
+    if (progressText) progressText.textContent = `Completado: ${uploadedCount}/${totalFiles} archivos subidos`;
+    
+    // Limpiar archivos seleccionados si todos se subieron exitosamente
+    if (uploadedCount === totalFiles) {
+        setTimeout(() => {
+            clearSelectedFiles();
+            if (progressContainer) progressContainer.style.display = 'none';
+        }, 2000);
+        
+        // Recargar galería S3
+        await loadS3Files();
+    }
+}
+
+// Convertir archivo a base64
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+            // Remover el prefijo "data:tipo/subtipo;base64,"
+            const base64 = reader.result.split(',')[1];
+            resolve(base64);
+        };
+        reader.onerror = error => reject(error);
+    });
+}
+
+// Agregar resultado de upload
+function addUploadResult(fileName, success, message) {
+    const resultsContainer = document.getElementById('upload-results');
+    if (!resultsContainer) return;
+    
+    const resultElement = document.createElement('div');
+    resultElement.className = `upload-result ${success ? 'success' : 'error'}`;
+    
+    resultElement.innerHTML = `
+        <div class="result-file">${success ? '✅' : '❌'} ${fileName}</div>
+        <div class="result-url">${message}</div>
+    `;
+    
+    resultsContainer.appendChild(resultElement);
+}
+
 // Exportar funciones para uso global
 window.incrementCounter = incrementCounter;
 window.getCounter = getCounter;
@@ -480,5 +667,8 @@ window.loadS3Files = loadS3Files;
 window.simulateUpload = simulateUpload;
 window.testAPI = testAPI;
 window.openS3File = openS3File;
+window.uploadSelectedFiles = uploadSelectedFiles;
+window.clearSelectedFiles = clearSelectedFiles;
+window.removeSelectedFile = removeSelectedFile;
 
 console.log('📜 Script loaded successfully');
