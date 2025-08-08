@@ -90,31 +90,46 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Middleware adicional para headers HTTP
+// Middleware para limpiar TODOS los headers problemáticos
 app.use((req, res, next) => {
-  // Remover headers problemáticos
+  // Remover TODOS los headers que pueden causar problemas
   res.removeHeader('X-Powered-By');
-  
-  // Headers para compatibilidad HTTP
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  
-  // No establecer headers HTTPS en HTTP
+  res.removeHeader('Cross-Origin-Opener-Policy');
+  res.removeHeader('Cross-Origin-Embedder-Policy');
+  res.removeHeader('Cross-Origin-Resource-Policy');
+  res.removeHeader('Origin-Agent-Cluster');
+  res.removeHeader('Referrer-Policy');
   res.removeHeader('Strict-Transport-Security');
+  res.removeHeader('X-Content-Type-Options');
+  res.removeHeader('X-Frame-Options');
+  res.removeHeader('X-DNS-Prefetch-Control');
+  
+  // Headers básicos solo para HTTP
+  res.setHeader('Server', 'AWS-Demo-HTTP');
   
   next();
 });
 
-// Servir archivos estáticos con configuración mejorada
+// Servir archivos estáticos con headers limpios
 app.use(express.static(path.join(__dirname, 'public'), {
-  setHeaders: (res, path) => {
-    if (path.endsWith('.css')) {
-      res.setHeader('Content-Type', 'text/css');
-      res.setHeader('Cache-Control', 'no-cache'); // Evitar caché de CSS
+  setHeaders: (res, filePath) => {
+    // Limpiar headers problemáticos antes de servir archivos
+    res.removeHeader('Cross-Origin-Opener-Policy');
+    res.removeHeader('Cross-Origin-Embedder-Policy');
+    res.removeHeader('Origin-Agent-Cluster');
+    
+    // Solo headers básicos necesarios
+    if (filePath.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     }
-    if (path.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript');
-      res.setHeader('Cache-Control', 'no-cache'); // Evitar caché de JS
+    if (filePath.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    }
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     }
   }
 }));
