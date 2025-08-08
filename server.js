@@ -69,37 +69,52 @@ async function findAvailablePort(startPort) {
     throw new Error('No se pudo encontrar un puerto disponible');
 }
 
-// Configuración de middlewares - Permisiva para HTTP
-app.use(helmet({
-  contentSecurityPolicy: false, // Deshabilitar CSP para evitar problemas con HTTP
-  crossOriginEmbedderPolicy: false,
-  crossOriginOpenerPolicy: false, // Deshabilitar COOP
-  crossOriginResourcePolicy: false, // Deshabilitar CORP
-  originAgentCluster: false, // Deshabilitar Origin-Agent-Cluster
-  referrerPolicy: false,
-  hsts: false, // Deshabilitar HSTS para HTTP
-}));
+// Configuración mínima para HTTP - Sin middlewares de seguridad
+console.log('🌐 Configuración HTTP mínima para máxima compatibilidad');
 
-app.use(cors({
-  origin: true, // Permitir cualquier origen
-  credentials: false, // Deshabilitar credentials para HTTP
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  optionsSuccessStatus: 200 // Para navegadores legacy
-}));
+// CORS muy permisivo
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  // Responder a preflight requests
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
 app.use(morgan('combined'));
 // Aumentar límite para subida de archivos (50MB)
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Middleware adicional para headers HTTP
+app.use((req, res, next) => {
+  // Remover headers problemáticos
+  res.removeHeader('X-Powered-By');
+  
+  // Headers para compatibilidad HTTP
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  
+  // No establecer headers HTTPS en HTTP
+  res.removeHeader('Strict-Transport-Security');
+  
+  next();
+});
 
 // Servir archivos estáticos con configuración mejorada
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, path) => {
     if (path.endsWith('.css')) {
       res.setHeader('Content-Type', 'text/css');
+      res.setHeader('Cache-Control', 'no-cache'); // Evitar caché de CSS
     }
     if (path.endsWith('.js')) {
       res.setHeader('Content-Type', 'application/javascript');
+      res.setHeader('Cache-Control', 'no-cache'); // Evitar caché de JS
     }
   }
 }));
