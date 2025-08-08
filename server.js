@@ -40,7 +40,7 @@ const app = express();
 // Configuración del servidor - buscar puerto disponible
 const net = require('net');
 let PORT = process.env.PORT || 3000;
-const HOST = process.env.HOST || 'localhost';
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Función para verificar si un puerto está disponible
 function isPortAvailable(port) {
@@ -369,6 +369,41 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+//ENDPOINT PARA AUTOMATIZACION DE DEPLOYMENT
+/* Webhook para auto-deployment (opcional)
+app.post('/api/webhook/deploy', (req, res) => {
+  // Verificar que sea un push al branch main
+  if (req.body.ref === 'refs/heads/main') {
+    console.log('🔄 Webhook received: Updating application...');
+    
+    const { exec } = require('child_process');
+    
+    // Ejecutar script de actualización
+    exec('/home/ubuntu/update-app.sh', (error, stdout, stderr) => {
+      if (error) {
+        console.error('❌ Deployment error:', error);
+        return res.status(500).json({
+          success: false,
+          message: 'Deployment failed',
+          error: error.message
+        });
+      }
+      
+      console.log('✅ Deployment successful:', stdout);
+      res.json({
+        success: true,
+        message: 'Application updated successfully',
+        output: stdout
+      });
+    });
+  } else {
+    res.json({
+      success: false,
+      message: 'Not a main branch push, ignoring'
+    });
+  }
+});*/
+
 // Middleware para rutas no encontradas
 app.use((req, res) => {
   res.status(404).json({
@@ -396,11 +431,11 @@ async function startServer() {
     try {
         PORT = await findAvailablePort(PORT);
         
-        app.listen(PORT, () => {
-            console.log(`🚀 Servidor AWS Demo iniciado en http://localhost:${PORT}`);
-            console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-            console.log(`☁️ AWS Info: http://localhost:${PORT}/api/aws-info`);
-            console.log(`📈 Counter: http://localhost:${PORT}/api/counter`);
+        app.listen(PORT, HOST, () => {
+            console.log(`🚀 Servidor AWS Demo iniciado en http://${HOST}:${PORT}`);
+            console.log(`📊 Health check: http://${HOST}:${PORT}/api/health`);
+            console.log(`☁️ AWS Info: http://${HOST}:${PORT}/api/aws-info`);
+            console.log(`📈 Counter: http://${HOST}:${PORT}/api/counter`);
             console.log('✅ Servidor listo para recibir conexiones');
         });
     } catch (error) {
