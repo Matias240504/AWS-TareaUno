@@ -69,27 +69,23 @@ async function findAvailablePort(startPort) {
     throw new Error('No se pudo encontrar un puerto disponible');
 }
 
-// Configuración de middlewares
+// Configuración de middlewares - Permisiva para HTTP
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "http:", "https:"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "http:", "https:"],
-      scriptSrcAttr: ["'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "http:", "https:", "*.amazonaws.com"],
-      connectSrc: ["'self'", "http:", "https:"],
-      fontSrc: ["'self'", "http:", "https:", "data:"],
-    },
-  },
+  contentSecurityPolicy: false, // Deshabilitar CSP para evitar problemas con HTTP
   crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false, // Deshabilitar COOP
+  crossOriginResourcePolicy: false, // Deshabilitar CORP
+  originAgentCluster: false, // Deshabilitar Origin-Agent-Cluster
+  referrerPolicy: false,
+  hsts: false, // Deshabilitar HSTS para HTTP
 }));
 
 app.use(cors({
-  origin: true,
-  credentials: true,
+  origin: true, // Permitir cualquier origen
+  credentials: false, // Deshabilitar credentials para HTTP
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200 // Para navegadores legacy
 }));
 app.use(morgan('combined'));
 // Aumentar límite para subida de archivos (50MB)
