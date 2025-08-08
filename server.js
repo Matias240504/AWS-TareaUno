@@ -74,22 +74,39 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "http:", "https:"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "http:", "https:"],
       scriptSrcAttr: ["'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:", "*.amazonaws.com"],
+      imgSrc: ["'self'", "data:", "http:", "https:", "*.amazonaws.com"],
+      connectSrc: ["'self'", "http:", "https:"],
+      fontSrc: ["'self'", "http:", "https:", "data:"],
     },
   },
+  crossOriginEmbedderPolicy: false,
 }));
 
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 app.use(morgan('combined'));
 // Aumentar límite para subida de archivos (50MB)
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Servir archivos estáticos
-app.use(express.static(path.join(__dirname, 'public')));
+// Servir archivos estáticos con configuración mejorada
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css');
+    }
+    if (path.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    }
+  }
+}));
 
 // Variables globales para simular datos
 let visitCounter = parseInt(process.env.VISIT_COUNTER || '100');
@@ -367,6 +384,39 @@ app.get('/api/health', (req, res) => {
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development'
   });
+});
+
+// Endpoint para debug de archivos estáticos
+app.get('/api/debug/files', (req, res) => {
+  const publicPath = path.join(__dirname, 'public');
+  
+  try {
+    const files = fs.readdirSync(publicPath);
+    const fileDetails = files.map(file => {
+      const filePath = path.join(publicPath, file);
+      const stats = fs.statSync(filePath);
+      return {
+        name: file,
+        size: stats.size,
+        isFile: stats.isFile(),
+        path: `/public/${file}`
+      };
+    });
+    
+    res.json({
+      success: true,
+      publicPath: publicPath,
+      files: fileDetails,
+      cssExists: fs.existsSync(path.join(publicPath, 'styles.css')),
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      publicPath: publicPath
+    });
+  }
 });
 
 //ENDPOINT PARA AUTOMATIZACION DE DEPLOYMENT
