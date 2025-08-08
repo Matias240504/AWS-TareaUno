@@ -1,0 +1,21 @@
+{
+  "name": "visit-counter-lambda",
+  "version": "1.0.0",
+  "description": "AWS Lambda function for visit counter using DynamoDB",
+  "main": "visit-counter.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "aws",
+    "lambda",
+    "dynamodb",
+    "counter",
+    "serverless"
+  ],
+  "author": "AWS Demo",
+  "license": "MIT",
+  "dependencies": {
+    "aws-sdk": "^2.1691.0"
+  }
+}

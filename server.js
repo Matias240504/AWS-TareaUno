@@ -228,42 +228,124 @@ app.get('/api/aws-info', async (req, res) => {
   }
 });
 
-// API para contador de visitas (simula Lambda)
-app.get('/api/counter', (req, res) => {
-  console.log('📊 Getting visit counter');
-  
-  res.json({
-    success: true,
-    count: visitCounter,
-    message: 'Counter retrieved successfully',
-    timestamp: new Date().toISOString()
-  });
+// API para contador de visitas (Lambda real)
+app.get('/api/counter', async (req, res) => {
+  try {
+    console.log('📊 Getting visit counter from Lambda');
+    
+    const params = {
+      FunctionName: process.env.LAMBDA_FUNCTION_NAME || 'visit-counter-lambda',
+      Payload: JSON.stringify({ action: 'get' })
+    };
+    
+    const result = await lambda.invoke(params).promise();
+    const response = JSON.parse(result.Payload);
+    
+    if (response.statusCode === 200) {
+      const data = JSON.parse(response.body);
+      res.json({
+        success: true,
+        count: data.data.count,
+        totalVisits: data.data.totalVisits,
+        lastUpdated: data.data.lastUpdated,
+        message: 'Counter retrieved from Lambda successfully',
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      throw new Error(`Lambda returned status ${response.statusCode}`);
+    }
+  } catch (error) {
+    console.error('❌ Error getting counter from Lambda:', error);
+    
+    // Fallback al contador local si Lambda falla
+    res.json({
+      success: true,
+      count: visitCounter,
+      message: 'Counter retrieved from fallback (Lambda unavailable)',
+      timestamp: new Date().toISOString(),
+      fallback: true
+    });
+  }
 });
 
-app.post('/api/counter/increment', (req, res) => {
-  console.log('🔄 Incrementing visit counter');
-  
-  visitCounter++;
-  
-  res.json({
-    success: true,
-    count: visitCounter,
-    message: 'Counter incremented successfully',
-    timestamp: new Date().toISOString()
-  });
+app.post('/api/counter/increment', async (req, res) => {
+  try {
+    console.log('🔄 Incrementing visit counter via Lambda');
+    
+    const params = {
+      FunctionName: process.env.LAMBDA_FUNCTION_NAME || 'visit-counter-lambda',
+      Payload: JSON.stringify({ action: 'increment' })
+    };
+    
+    const result = await lambda.invoke(params).promise();
+    const response = JSON.parse(result.Payload);
+    
+    if (response.statusCode === 200) {
+      const data = JSON.parse(response.body);
+      res.json({
+        success: true,
+        count: data.data.count,
+        totalVisits: data.data.totalVisits,
+        lastUpdated: data.data.lastUpdated,
+        message: 'Counter incremented via Lambda successfully',
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      throw new Error(`Lambda returned status ${response.statusCode}`);
+    }
+  } catch (error) {
+    console.error('❌ Error incrementing counter via Lambda:', error);
+    
+    // Fallback al contador local si Lambda falla
+    visitCounter++;
+    res.json({
+      success: true,
+      count: visitCounter,
+      message: 'Counter incremented via fallback (Lambda unavailable)',
+      timestamp: new Date().toISOString(),
+      fallback: true
+    });
+  }
 });
 
-app.post('/api/counter/reset', (req, res) => {
-  console.log('🔄 Resetting visit counter');
-  
-  visitCounter = 0;
-  
-  res.json({
-    success: true,
-    count: visitCounter,
-    message: 'Counter reset successfully',
-    timestamp: new Date().toISOString()
-  });
+app.post('/api/counter/reset', async (req, res) => {
+  try {
+    console.log('🔄 Resetting visit counter via Lambda');
+    
+    const params = {
+      FunctionName: process.env.LAMBDA_FUNCTION_NAME || 'visit-counter-lambda',
+      Payload: JSON.stringify({ action: 'reset' })
+    };
+    
+    const result = await lambda.invoke(params).promise();
+    const response = JSON.parse(result.Payload);
+    
+    if (response.statusCode === 200) {
+      const data = JSON.parse(response.body);
+      res.json({
+        success: true,
+        count: data.data.count,
+        totalVisits: data.data.totalVisits,
+        lastUpdated: data.data.lastUpdated,
+        message: 'Counter reset via Lambda successfully',
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      throw new Error(`Lambda returned status ${response.statusCode}`);
+    }
+  } catch (error) {
+    console.error('❌ Error resetting counter via Lambda:', error);
+    
+    // Fallback al contador local si Lambda falla
+    visitCounter = 0;
+    res.json({
+      success: true,
+      count: visitCounter,
+      message: 'Counter reset via fallback (Lambda unavailable)',
+      timestamp: new Date().toISOString(),
+      fallback: true
+    });
+  }
 });
 
 // API para listar archivos S3 (real)
