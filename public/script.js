@@ -3,7 +3,7 @@
 // Configuración de la aplicación
 const APP_CONFIG = {
     // Base URL de la API (se ajusta automáticamente)
-    API_BASE_URL: window.location.origin,
+    API_BASE_URL: 'http://184.73.36.96:3000',
     
     // Endpoints de la API
     ENDPOINTS: {
