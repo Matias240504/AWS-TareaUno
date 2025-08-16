@@ -152,20 +152,43 @@ function updateAWSInfo(info) {
 async function loadVisitCounter() {
     try {
         console.log('📊 Loading visit counter...');
+        console.log('API URL:', `${APP_CONFIG.API_BASE_URL}${APP_CONFIG.ENDPOINTS.COUNTER}`);
         
         const response = await fetch(`${APP_CONFIG.API_BASE_URL}${APP_CONFIG.ENDPOINTS.COUNTER}`);
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
+        console.log('Counter data received:', data);
         
         if (data.success) {
             updateCounterDisplay(data.count, data.timestamp, data.fallback);
             console.log('✅ Visit counter loaded:', data.count);
         } else {
-            throw new Error('Failed to load counter');
+            throw new Error(`API returned error: ${data.message || 'Unknown error'}`);
         }
         
     } catch (error) {
         console.error('❌ Error loading counter:', error);
-        document.getElementById('visit-count').textContent = 'Error';
+        
+        // Mostrar error específico en el contador
+        const countElement = document.getElementById('visit-count');
+        const statusElement = document.getElementById('counter-status');
+        
+        if (countElement) {
+            countElement.textContent = 'Error';
+        }
+        
+        if (statusElement) {
+            statusElement.textContent = '❌ Error de conexión';
+            statusElement.style.color = '#f44336';
+        }
+        
+        // Intentar mostrar un contador por defecto
+        updateCounterDisplay(0, new Date().toISOString(), true);
     }
 }
 

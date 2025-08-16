@@ -232,6 +232,8 @@ app.get('/api/aws-info', async (req, res) => {
 app.get('/api/counter', async (req, res) => {
   try {
     console.log('📊 Getting visit counter from Lambda');
+    console.log('Function name:', process.env.LAMBDA_FUNCTION_NAME || 'visit-counter-lambda');
+    console.log('AWS Region:', process.env.AWS_REGION);
     
     const params = {
       FunctionName: process.env.LAMBDA_FUNCTION_NAME || 'visit-counter-lambda',
@@ -249,13 +251,16 @@ app.get('/api/counter', async (req, res) => {
         totalVisits: data.data.totalVisits,
         lastUpdated: data.data.lastUpdated,
         message: 'Counter retrieved from Lambda successfully',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        fallback: false
       });
     } else {
       throw new Error(`Lambda returned status ${response.statusCode}`);
     }
   } catch (error) {
     console.error('❌ Error getting counter from Lambda:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
     
     // Fallback al contador local si Lambda falla
     res.json({
@@ -288,7 +293,8 @@ app.post('/api/counter/increment', async (req, res) => {
         totalVisits: data.data.totalVisits,
         lastUpdated: data.data.lastUpdated,
         message: 'Counter incremented via Lambda successfully',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        fallback: false
       });
     } else {
       throw new Error(`Lambda returned status ${response.statusCode}`);
@@ -328,7 +334,8 @@ app.post('/api/counter/reset', async (req, res) => {
         totalVisits: data.data.totalVisits,
         lastUpdated: data.data.lastUpdated,
         message: 'Counter reset via Lambda successfully',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        fallback: false
       });
     } else {
       throw new Error(`Lambda returned status ${response.statusCode}`);
@@ -477,6 +484,42 @@ app.post('/api/s3/upload', async (req, res) => {
       success: false,
       message: 'Error uploading file to S3',
       error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// API para probar conexión Lambda
+app.get('/api/test-lambda', async (req, res) => {
+  try {
+    console.log('🧪 Testing Lambda connection...');
+    
+    const params = {
+      FunctionName: process.env.LAMBDA_FUNCTION_NAME || 'visit-counter-lambda',
+      Payload: JSON.stringify({ action: 'get' })
+    };
+    
+    const result = await lambda.invoke(params).promise();
+    const response = JSON.parse(result.Payload);
+    
+    res.json({
+      success: true,
+      message: 'Lambda connection successful',
+      lambdaResponse: response,
+      functionName: params.FunctionName,
+      region: process.env.AWS_REGION,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Lambda test failed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lambda connection failed',
+      error: error.message,
+      code: error.code,
+      functionName: process.env.LAMBDA_FUNCTION_NAME || 'visit-counter-lambda',
+      region: process.env.AWS_REGION,
       timestamp: new Date().toISOString()
     });
   }
