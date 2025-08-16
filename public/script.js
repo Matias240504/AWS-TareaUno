@@ -157,7 +157,7 @@ async function loadVisitCounter() {
         const data = await response.json();
         
         if (data.success) {
-            updateCounterDisplay(data.count, data.timestamp);
+            updateCounterDisplay(data.count, data.timestamp, data.fallback);
             console.log('✅ Visit counter loaded:', data.count);
         } else {
             throw new Error('Failed to load counter');
@@ -184,7 +184,7 @@ async function incrementCounter() {
         const data = await response.json();
         
         if (data.success) {
-            updateCounterDisplay(data.count, data.timestamp);
+            updateCounterDisplay(data.count, data.timestamp, data.fallback);
             animateCounter();
             console.log('✅ Counter incremented to:', data.count);
         } else {
@@ -221,7 +221,7 @@ async function resetCounter() {
         const data = await response.json();
         
         if (data.success) {
-            updateCounterDisplay(data.count, data.timestamp);
+            updateCounterDisplay(data.count, data.timestamp, data.fallback);
             console.log('✅ Counter reset to:', data.count);
         } else {
             throw new Error('Failed to reset counter');
@@ -234,9 +234,12 @@ async function resetCounter() {
 }
 
 // Actualizar display del contador
-function updateCounterDisplay(count, timestamp) {
+function updateCounterDisplay(count, timestamp, fallback = false) {
     const countElement = document.getElementById('visit-count');
     const lastUpdateElement = document.getElementById('counter-last-update');
+    const statusElement = document.getElementById('counter-status');
+    const databaseElement = document.getElementById('database-status');
+    const lambdaElement = document.getElementById('lambda-status');
     
     if (countElement) {
         countElement.textContent = count;
@@ -244,7 +247,38 @@ function updateCounterDisplay(count, timestamp) {
     
     if (lastUpdateElement && timestamp) {
         const date = new Date(timestamp);
-        lastUpdateElement.textContent = `Última actualización: ${date.toLocaleString()}`;
+        lastUpdateElement.textContent = date.toLocaleString();
+    }
+    
+    // Actualizar indicadores de estado
+    if (statusElement) {
+        if (fallback) {
+            statusElement.textContent = '⚠️ Modo Local (Lambda no disponible)';
+            statusElement.style.color = '#ff9800';
+        } else {
+            statusElement.textContent = '✅ Conectado a DynamoDB';
+            statusElement.style.color = '#4caf50';
+        }
+    }
+    
+    if (databaseElement) {
+        if (fallback) {
+            databaseElement.textContent = '💾 Memoria Local';
+            databaseElement.style.color = '#ff9800';
+        } else {
+            databaseElement.textContent = '🗄️ DynamoDB (Persistente)';
+            databaseElement.style.color = '#4caf50';
+        }
+    }
+    
+    if (lambdaElement) {
+        if (fallback) {
+            lambdaElement.textContent = '🔴 Lambda Desconectado';
+            lambdaElement.style.color = '#f44336';
+        } else {
+            lambdaElement.textContent = '⚡ AWS Lambda Activo';
+            lambdaElement.style.color = '#4caf50';
+        }
     }
 }
 

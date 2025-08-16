@@ -146,19 +146,62 @@
 
         <section id="counter" class="counter">
             <div class="container">
-                <h2>Contador de Visitas</h2>
-                <p>Este contador usa una API para una función Lambda:</p>
+                <h2>🗄️ Contador de Visitas con DynamoDB</h2>
+                <p>Este contador usa <strong>AWS Lambda + DynamoDB</strong> para persistencia completa:</p>
+                
+                <div class="dynamodb-features">
+                    <div class="feature-card">
+                        <h4>🔒 Persistencia Total</h4>
+                        <p>Los datos nunca se pierden</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>⚡ Alta Performance</h4>
+                        <p>Respuesta en milisegundos</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>📈 Escalable</h4>
+                        <p>Soporta miles de usuarios</p>
+                    </div>
+                </div>
+
                 <div class="visit-counter">
                     <span id="visit-count">Cargando...</span>
-                    <p>visitas</p>
+                    <p>visitas almacenadas en DynamoDB</p>
                 </div>
+                
                 <div class="counter-controls">
-                    <button onclick="incrementCounter()">➕ Incrementar</button>
-                    <button onclick="getCounter()">🔄 Actualizar</button>
-                    <button onclick="resetCounter()">🔄 Resetear</button>
+                    <button onclick="incrementCounter()" class="btn-primary">➕ Incrementar</button>
+                    <button onclick="getCounter()" class="btn-secondary">🔄 Actualizar</button>
+                    <button onclick="resetCounter()" class="btn-danger">🔄 Resetear a 0</button>
                 </div>
+                
                 <div class="counter-info">
-                    <small id="counter-last-update">Última actualización: --</small>
+                    <div class="info-row">
+                        <span class="info-label">📊 Estado:</span>
+                        <span id="counter-status">Conectando...</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">🕒 Última actualización:</span>
+                        <span id="counter-last-update">--</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">🗄️ Base de datos:</span>
+                        <span id="database-status">DynamoDB</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">⚡ Función:</span>
+                        <span id="lambda-status">AWS Lambda</span>
+                    </div>
+                </div>
+
+                <div class="persistence-demo">
+                    <h4>🧪 Prueba la Persistencia:</h4>
+                    <ol>
+                        <li>Incrementa el contador varias veces</li>
+                        <li>Refresca la página (F5) - el valor se mantiene</li>
+                        <li>Cierra y abre el navegador - el valor persiste</li>
+                        <li>Espera 15+ minutos - sigue funcionando</li>
+                    </ol>
                 </div>
             </div>
         </section>
